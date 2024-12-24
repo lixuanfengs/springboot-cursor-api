@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+message MainMessage {
+  // Field 2: 嵌套的第一个消息
+  repeated NestedMessage1 field_2 = 2;
+
+  // Field 4: 嵌套的第二个消息
+  NestedMessage2 field_4 = 4;
+
+  // Field 7: 嵌套的第三个消息
+  NestedMessage3 field_7 = 7;
+
+
+  // Field 13: varint 类型
+  int32 field_13 = 13;
+
+  // Field 15: 字符串类型 (UUID)
+  string field_15 = 15;
+
+  // Field 16: varint 类型
+  int32 field_16 = 16;
+
+  // Field 29: varint 类型
+  int32 field_29 = 29;
+
+
+}
+
+message NestedMessage1 {
+  // Field 1: 字符串类型
+  string field_1 = 1;
+
+  // Field 2: varint 类型
+  int32 field_2 = 2;
+
+  // Field 13: 字符串类型 (UUID)
+  string field_13 = 13;
+}
+
+message NestedMessage2 {
+  // Field 1: 字符串类型
+  string field_1 = 1;
+}
+
+message NestedMessage3 {
+  // Field 1: 字符串类型
+  string field_1 = 1;
+
+  // Field 4: 字节类型
+  bytes field_4 = 4;
+}
