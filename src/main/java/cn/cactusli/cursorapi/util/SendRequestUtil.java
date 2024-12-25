@@ -5,6 +5,7 @@ import cn.cactusli.cursorapi.dto.ChatCompletionChunk;
 import cn.cactusli.cursorapi.dto.ChatMessage;
 import cn.cactusli.cursorapi.dto.MessageObject;
 import cn.hutool.json.JSONUtil;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -16,6 +17,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.*;
+
 
 
 /**
@@ -39,11 +41,15 @@ public class SendRequestUtil {
 
     }
 
-    public static Object sendRequestApi(MessageObject messageObject) throws IOException {
+    public static Object sendRequestApi(MessageObject messageObject, HttpHeaders headers) throws IOException {
+
         byte[] requestData = createRequestData(messageObject);
+
         HttpResponse<InputStream> response;
+
         try {
-            response = createAndSendHttpRequest(requestData);
+            response = createAndSendHttpRequest(requestData, headers);
+
             return processResponse(response, messageObject);
         } catch (URISyntaxException e) {
             throw new RuntimeException(e);
@@ -72,9 +78,9 @@ public class SendRequestUtil {
             for (byte[] chunk : chunks) {
                 String replaceText = MessageUtil.replaceText(chunk);
                 ChatCompletionChunk chatCompletionChunk = MessageUtil.newChatCompletionChunk(messageObject, replaceText);
-                emitter.send(JSONUtil.toJsonStr(chatCompletionChunk) + "\n\n", MediaType.APPLICATION_JSON);
+                emitter.send(JSONUtil.toJsonStr(chatCompletionChunk) , MediaType.APPLICATION_JSON);
             }
-            emitter.send("data: [DONE]\n\n", MediaType.APPLICATION_JSON);
+            emitter.send("data: [DONE]", MediaType.APPLICATION_JSON);
             emitter.complete();
         } catch (IOException e) {
             emitter.completeWithError(e);
@@ -144,13 +150,31 @@ public class SendRequestUtil {
         return chunks;
     }
 
-    private static HttpResponse<InputStream> createAndSendHttpRequest(byte[] requestData) throws IOException, URISyntaxException, InterruptedException {
+    private static HttpResponse<InputStream> createAndSendHttpRequest(byte[] requestData, HttpHeaders headers) throws IOException, URISyntaxException, InterruptedException {
+
+        List<String> authorization = headers.get("Authorization");
+
+        if (authorization == null || authorization.isEmpty()) {
+            throw new RuntimeException("Authorization header is required");
+        }
+
         String uuid = UUID.randomUUID().toString();
+
         HttpClient client = HttpClient.newHttpClient();
+
+        String authToken = authorization.stream()
+                .map(a -> a.replace("Bearer ", ""))
+                .findFirst()
+                .orElse(null);
+
+        if (authToken.contains("%3A%3A")) {
+            authToken = authToken.split("%3A%3A")[1];
+        }
+
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(new URI(API_URL))
                 .POST(HttpRequest.BodyPublishers.ofByteArray(requestData))
-                .headers("authorization", Headers.AUTHORIZATION,
+                .headers("authorization", authToken == null ? Headers.AUTHORIZATION : "Bearer "+ authToken,
                         "content-type", "application/connect+proto",
                         "x-client-key", Headers.CLIENT_KEY,
                         "x-cursor-checksum", "3P8BHmtO615c184c124e7bb4103cf14c55e7345c871a91d6ee87025f7e807cf3ac6b3af6/45654b08705c4c80b0270586451971544d912a82be26a3679d596e4c975701c4ba",
@@ -167,6 +191,7 @@ public class SendRequestUtil {
     private static byte[] createRequestData(MessageObject messageText) {
         ChatMessage.MainMessage message = MessageUtil.buildChatMessage(messageText);
         byte[] messageBytes = message.toByteArray();
+        // 将messageBytes.length（一个整数）转换为固定长度为10的十六进制字符串，如果位数不够10位，则在左边用0填充。
         String hexLength = String.format("%010x", messageBytes.length);
         String hexData = MessageUtil.bytesToHex(messageBytes);
         return MessageUtil.hexStringToByteArray(hexLength + hexData);
