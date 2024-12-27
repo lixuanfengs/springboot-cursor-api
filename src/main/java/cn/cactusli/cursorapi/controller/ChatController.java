@@ -6,7 +6,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.util.List;
 
 /**
  * Package: cn.cactusli.cursorapi.controller
